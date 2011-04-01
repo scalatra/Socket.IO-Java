@@ -1,0 +1,133 @@
+<!--
+
+    The MIT License
+    Copyright (c) 2010 Tad Glines
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    THE SOFTWARE.
+
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <title>EventBus</title>
+    <script type="text/javascript" src="jquery-1.4.4.min.js"></script>
+    <script type="text/javascript" src="jquery.json-2.2.min.js"></script>
+    <script type="text/javascript" src="/socket.io/socket.io.js"></script>
+    <script type="text/javascript">
+        (function($) {
+
+            var MessageType = {
+                SUBSCRIBE: 1,
+                UNSUBSCRIBE: 2,
+                PUBLISH: 3,
+                ACK: 4
+            };
+
+            var queue = [];
+            var socket = new io.Socket();
+
+            function send(msg) {
+                if (socket.isConnected()) {
+                    socket.send($.toJSON([msg]));
+                } else {
+                    queue.push(msg);
+                }
+            }
+
+            socket.on('connect', function() {
+                console.info('Connected !');
+                if (queue.length > 0) {
+                    var q = queue;
+                    queue = [];
+                    console.debug('onConnect - dequeuing: ', $.toJSON(q));
+                    socket.send($.toJSON(q));
+                }
+            });
+
+            socket.on('disconnect', function (disconnectReason, errorMessage) {
+                console.debug('onDisconnect - reason=' + disconnectReason + ', err=' + errorMessage);
+                if (disconnectReason != socket.DR_CLOSED && disconnectReason != socket.DR_CLOSED_REMOTELY) {
+                    console.debug('Reconnecting in 10 seconds...');
+                    setTimeout(function() {
+                        console.info('Reconnecting...');
+                        socket.connect();
+                    }, 10000);
+                }
+            });
+            
+            socket.on('message', function(mtype, obj, error) {
+                console.debug('onMessage - type=' + mtype + ', err=' + error + ', data=' + $.toJSON(obj));
+                var msg = $.parseJSON(obj);
+                if (msg.type == MessageType.PUBLISH) {
+                    $('body').append('<p>Firing JSON data ' + msg.data + ' in topic ' + msg.topic + '</p>');
+                }
+            });
+
+
+            window.TESTER = {
+                socket: socket,
+                start: function() {
+                    if (!socket.isConnected()) {
+                        console.info('Starting...');
+                        socket.connect();
+                    }
+                },
+                stop: function() {
+                    if (socket.isConnected()) {
+                        console.info('Stopping...');
+                        socket.close();
+                    }
+                },
+                publish: function(topic, data) {
+                    data = $.toJSON(data);
+                    console.debug('publish on topic ' + topic + ' data:' + data);
+                    send({
+                        type: MessageType.PUBLISH,
+                        topic: topic,
+                        data: data
+                    });
+                },
+                subscribe: function(topic) {
+                    console.debug('subscribe - topic=' + topic);
+                    send({
+                        type: MessageType.SUBSCRIBE,
+                        topic: topic
+                    });
+                },
+                unsubscribe: function(topic) {
+                    console.debug('unsubscribe - topic=' + topic);
+                    send({
+                        type: MessageType.UNSUBSCRIBE,
+                        topic: topic
+                    });
+                }
+            };
+        })(jQuery);
+    </script>
+</head>
+<body>
+<p><strong>In the Firebug console, you can execute:</strong></p>
+<pre>TESTER.start();</pre>
+<pre>TESTER.subscribe('myTopic');</pre>
+<pre>TESTER.publish('myTopic', 'myMessage');</pre>
+<pre>TESTER.stop();</pre>
+<hr/>
+</body>
+</html>
