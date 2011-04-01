@@ -23,29 +23,35 @@
 
 package com.glines.socketio.server.transport;
 
-import java.io.IOException;
-import java.util.Arrays;
+import com.glines.socketio.server.SocketIOFrame;
+import com.glines.socketio.server.SocketIOSession;
+import com.glines.socketio.server.transport.ConnectionTimeoutPreventor.IdleCheck;
+import org.eclipse.jetty.util.ajax.JSON;
+import org.eclipse.jetty.util.log.Log;
 
 import javax.servlet.ServletOutputStream;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
-import org.eclipse.jetty.util.ajax.JSON;
-
-import com.glines.socketio.server.SocketIOFrame;
-import com.glines.socketio.server.SocketIOSession;
-import com.glines.socketio.server.transport.ConnectionTimeoutPreventor.IdleCheck;
+import java.io.IOException;
+import java.util.Arrays;
 
 public class HTMLFileTransport extends XHRTransport {
 	public static final String TRANSPORT_NAME = "htmlfile";
 
 	private class HTMLFileSessionHelper extends XHRSessionHelper {
-		private final IdleCheck idleCheck;
+		private IdleCheck _idleCheck;
+
+        private IdleCheck getIdleCheck() {
+           if(_idleCheck == null) {
+               _idleCheck = ConnectionTimeoutPreventor.newTimeoutPreventor();
+           }
+           return _idleCheck;
+        }
 
 		HTMLFileSessionHelper(SocketIOSession session, IdleCheck idleCheck) {
 			super(session, true);
-			this.idleCheck = idleCheck;
+			_idleCheck = idleCheck;
 		}
 
 		protected void startSend(HttpServletResponse response) throws IOException {
@@ -60,7 +66,11 @@ public class HTMLFileTransport extends XHRTransport {
 		}
 		
 		protected void writeData(ServletResponse response, String data) throws IOException {
-			idleCheck.activity();
+            try {
+                getIdleCheck().activity();
+            } catch (Exception e) {
+                Log.warn(e);
+            }
 			response.getOutputStream().print("<script>parent.s._("+ JSON.toString(data) +", document);</script>");
 			response.flushBuffer();
 		}

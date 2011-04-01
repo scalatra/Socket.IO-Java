@@ -23,19 +23,17 @@
 
 package com.glines.socketio.server.transport;
 
-import java.io.IOException;
-import java.util.Arrays;
+import com.glines.socketio.server.SocketIOFrame;
+import com.glines.socketio.server.SocketIOSession;
+import com.glines.socketio.server.transport.ConnectionTimeoutPreventor.IdleCheck;
+import org.eclipse.jetty.util.log.Log;
 
 import javax.servlet.ServletOutputStream;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
-import org.eclipse.jetty.util.log.Log;
-
-import com.glines.socketio.server.SocketIOFrame;
-import com.glines.socketio.server.SocketIOSession;
-import com.glines.socketio.server.transport.ConnectionTimeoutPreventor.IdleCheck;
+import java.io.IOException;
+import java.util.Arrays;
 
 public class XHRMultipartTransport extends XHRTransport {
 	public static final String TRANSPORT_NAME = "xhr-multipart";
@@ -45,14 +43,21 @@ public class XHRMultipartTransport extends XHRTransport {
 		private final String contentType;
 		private final String boundary;
 		private final String boundarySeperator;
-		private final IdleCheck idleCheck;
+		private IdleCheck _idleCheck;
+
+        private IdleCheck getIdleCheck() {
+            if(_idleCheck == null) {
+                _idleCheck = ConnectionTimeoutPreventor.newTimeoutPreventor();
+            }
+            return _idleCheck;
+        }
 		
 		XHRMultipartSessionHelper(SocketIOSession session, IdleCheck idleCheck) {
 			super(session, true);
 			boundary = session.generateRandomString(MULTIPART_BOUNDARY_LENGTH);
 			boundarySeperator = "--" + boundary;
 			contentType = "multipart/x-mixed-replace;boundary=\""+boundary+"\"";
-			this.idleCheck = idleCheck;
+			_idleCheck = idleCheck;
 		}
 
 		protected void startSend(HttpServletResponse response) throws IOException {
@@ -66,7 +71,9 @@ public class XHRMultipartTransport extends XHRTransport {
 		}
 
 		protected void writeData(ServletResponse response, String data) throws IOException {
-			idleCheck.activity();
+			try {
+                getIdleCheck().activity();
+            } catch (Exception e) { Log.warn(e); }
 			Log.debug("Session["+session.getSessionId()+"]: writeData(START): " + data);
 			ServletOutputStream os = response.getOutputStream();
 			os.println("Content-Type: text/plain");

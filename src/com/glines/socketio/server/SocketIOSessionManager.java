@@ -23,23 +23,17 @@
 
 package com.glines.socketio.server;
 
-import java.security.SecureRandom;
-import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-
-import org.eclipse.jetty.util.log.Log;
-
 import com.glines.socketio.common.ConnectionState;
 import com.glines.socketio.common.DisconnectReason;
 import com.glines.socketio.common.SocketIOException;
+import org.eclipse.jetty.util.log.Log;
 
-class SocketIOSessionManager implements SocketIOSession.Factory {
+import java.security.SecureRandom;
+import java.util.Random;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
+
+public class SocketIOSessionManager implements SocketIOSession.Factory {
 	private static final char[] BASE64_ALPHABET =
 	      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 	      .toCharArray();
