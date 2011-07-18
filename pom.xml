@@ -12,6 +12,7 @@
     <name>Socket.IO Java</name>
     <description>Java backend for Socket.IO javascript library</description>
     <inceptionYear>2010</inceptionYear>
+    <url>http://github.com/scalatra/SocketIO-Java</url>
 
     <properties>
         <jdk.version>1.6</jdk.version>
