@@ -144,8 +144,6 @@
                     <version>1.1</version>
                     <configuration>
                         <useAgent>false</useAgent>
-                        <!-- GPG key ID for Tad Glines -->
-                        <keyname>29D37D27</keyname>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -305,8 +303,7 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- TODO: activate if deploying in OSS Sonatype repos or maven central repo togpg sign jars -->
-            <!--<plugin>
+            <plugin>
                 <artifactId>maven-gpg-plugin</artifactId>
                 <executions>
                     <execution>
@@ -317,7 +314,7 @@
                         </goals>
                     </execution>
                 </executions>
-            </plugin>-->
+            </plugin>
         </plugins>
     </build>
 
