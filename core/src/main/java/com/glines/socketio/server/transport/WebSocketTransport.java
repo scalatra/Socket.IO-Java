@@ -29,6 +29,7 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.eclipse.jetty.client.HttpConnection;
 import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.websocket.WebSocket;
 import org.eclipse.jetty.websocket.WebSocketFactory;
@@ -42,21 +43,34 @@ import com.glines.socketio.server.SocketIOFrame;
 import com.glines.socketio.server.SocketIOSession;
 import com.glines.socketio.server.Transport;
 
-public class WebSocketTransport extends AbstractTransport {
+public class WebSocketTransport extends AbstractTransport implements WebSocketFactory.Acceptor {
 	public static final String TRANSPORT_NAME = "websocket";
 	public static final long CONNECTION_TIMEOUT = 10*1000;
 	private final WebSocketFactory wsFactory;
 	private final long maxIdleTime;
 
-	private class SessionWrapper implements WebSocket, SocketIOSession.SessionTransportHandler {
+  @Override
+  public WebSocket doWebSocketConnect(HttpServletRequest httpServletRequest, String s) {
+    throw new RuntimeException("This method isn't used by socket io");
+  }
+
+  @Override
+  public String checkOrigin(HttpServletRequest httpServletRequest, String host, String origin) {
+    if (origin == null) {
+      origin = host;
+    }
+    return origin;
+  }
+
+  private class SessionWrapper implements WebSocket.OnTextMessage, SocketIOSession.SessionTransportHandler {
 		private final SocketIOSession session;
-		private Outbound outbound = null;
+		private Connection outbound = null;
 		private boolean initiated = false;
 
 		SessionWrapper(SocketIOSession session) {
 			this.session = session;
-	        session.setHeartbeat(maxIdleTime/2);
-	        session.setTimeout(CONNECTION_TIMEOUT);
+      session.setHeartbeat(maxIdleTime/2);
+      session.setTimeout(CONNECTION_TIMEOUT);
 		}
 		
 		/*
@@ -64,7 +78,7 @@ public class WebSocketTransport extends AbstractTransport {
 		 * @see org.eclipse.jetty.websocket.WebSocket#onConnect(org.eclipse.jetty.websocket.WebSocket.Outbound)
 		 */
 		@Override
-		public void onConnect(final Outbound outbound) {
+		public void onOpen(final Connection outbound) {
 			this.outbound = outbound;
 		}
 
@@ -73,61 +87,9 @@ public class WebSocketTransport extends AbstractTransport {
            * @see org.eclipse.jetty.websocket.WebSocket#onDisconnect()
            */
 		@Override
-		public void onDisconnect() {
+		public void onClose(int code, String reason) {
 			session.onShutdown();
 		}
-		
-		/*
-		 * (non-Javadoc)
-		 * @see org.eclipse.jetty.websocket.WebSocket#onMessage(byte, java.lang.String)
-		 */
-		@Override
-		public void onMessage(byte frame, String message) {
-			session.startHeartbeatTimer();
-			if (!initiated) {
-				if ("OPEN".equals(message)) {
-					try {
-						outbound.sendMessage(SocketIOFrame.encode(SocketIOFrame.FrameType.SESSION_ID, 0, session.getSessionId()));
-						outbound.sendMessage(SocketIOFrame.encode(SocketIOFrame.FrameType.HEARTBEAT_INTERVAL, 0, "" + session.getHeartbeat()));
-						session.onConnect(this);
-						initiated = true;
-					} catch (IOException e) {
-						outbound.disconnect();
-						session.onShutdown();
-					}
-				} else {
-					outbound.disconnect();
-					session.onShutdown();
-				}
-			} else {
-				List<SocketIOFrame> messages = SocketIOFrame.parse(message);
-				
-				for (SocketIOFrame msg: messages) {
-					session.onMessage(msg);
-				}
-			}
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * @see org.eclipse.jetty.websocket.WebSocket#onMessage(byte, byte[], int, int)
-		 */
-		@Override
-		public void onMessage(byte frame, byte[] data, int offset, int length) {
-            try
-            {
-                onMessage(frame,new String(data,offset,length,"UTF-8"));
-            }
-            catch(UnsupportedEncodingException e)
-            {
-            	// Do nothing for now.
-            }
-		}
-
-        @Override
-        public void onFragment(boolean more, byte opcode, byte[] data, int offset, int length) {
-            throw new UnsupportedOperationException();
-        }
 
 		/*
 		 * (non-Javadoc)
@@ -205,11 +167,37 @@ public class WebSocketTransport extends AbstractTransport {
 			outbound = null;
 			session.onShutdown();
 		}
-	}
+
+    @Override
+    public void onMessage(String message) {
+      session.startHeartbeatTimer();
+			if (!initiated) {
+				if ("OPEN".equals(message)) {
+					try {
+						outbound.sendMessage(SocketIOFrame.encode(SocketIOFrame.FrameType.SESSION_ID, 0, session.getSessionId()));
+						outbound.sendMessage(SocketIOFrame.encode(SocketIOFrame.FrameType.HEARTBEAT_INTERVAL, 0, "" + session.getHeartbeat()));
+						session.onConnect(this);
+						initiated = true;
+					} catch (IOException e) {
+						outbound.disconnect();
+						session.onShutdown();
+					}
+				} else {
+					outbound.disconnect();
+					session.onShutdown();
+				}
+			} else {
+				List<SocketIOFrame> messages = SocketIOFrame.parse(message);
+
+				for (SocketIOFrame msg: messages) {
+					session.onMessage(msg);
+				}
+			}
+    }
+  }
 
 	public WebSocketTransport(int bufferSize, int maxIdleTime) {
-		wsFactory = new WebSocketFactory();
-		wsFactory.setBufferSize(bufferSize);
+		wsFactory = new WebSocketFactory(this, bufferSize);
 		wsFactory.setMaxIdleTime(maxIdleTime);
 		this.maxIdleTime = maxIdleTime;
 	}
@@ -218,7 +206,21 @@ public class WebSocketTransport extends AbstractTransport {
 	public String getName() {
 		return TRANSPORT_NAME;
 	}
-	
+
+  protected String[] parseProtocols(String protocol)
+  {
+      if (protocol == null)
+          return new String[]{null};
+      protocol = protocol.trim();
+      if (protocol == null || protocol.length() == 0)
+          return new String[]{null};
+      String[] passed = protocol.split("\\s*,\\s*");
+      String[] protocols = new String[passed.length + 1];
+      System.arraycopy(passed, 0, protocols, 0, passed.length);
+      return protocols;
+  }
+
+
 	@Override
 	public void handle(HttpServletRequest request,
 			HttpServletResponse response,
@@ -227,31 +229,35 @@ public class WebSocketTransport extends AbstractTransport {
 			throws IOException {
 
 		String sessionId = extractSessionId(request);
-		
-		if ("GET".equals(request.getMethod()) && sessionId == null && "WebSocket".equals(request.getHeader("Upgrade"))) {
-			boolean hixie = request.getHeader("Sec-WebSocket-Key1") != null;
-            
-            String protocol=request.getHeader(hixie ? "Sec-WebSocket-Protocol" : "WebSocket-Protocol");
-            if (protocol == null)
-                protocol=request.getHeader("Sec-WebSocket-Protocol");
 
-	        String host=request.getHeader("Host");
-	        String origin=request.getHeader("Origin");
-	        if (origin == null) {
-	        	origin = host;
-	        }
-	
-	        SocketIOInbound inbound = inboundFactory.getInbound(request);
-	        if (inbound == null) {
-	        	if (hixie) {
-                    response.setHeader("Connection","close");
-	        	}
-                response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-	        } else {
-	        	SocketIOSession session = sessionFactory.createSession(inbound);
-		        SessionWrapper wrapper = new SessionWrapper(session);
-		        wsFactory.upgrade(request,response,wrapper,origin,protocol);
-	        }
+		if ("GET".equals(request.getMethod()) && sessionId == null && "websocket".equalsIgnoreCase(request.getHeader("Upgrade"))) {
+			boolean hixie = request.getHeader("Sec-WebSocket-Protocol") != null;
+
+      String protocol=request.getHeader(hixie ? "Sec-WebSocket-Protocol" : "WebSocket-Protocol");
+      if (protocol == null)
+          protocol=request.getHeader("Sec-WebSocket-Protocol");
+
+      String host = request.getHeader("Host");
+      String origin = checkOrigin(request, host, request.getHeader("Origin"));
+
+      SocketIOInbound inbound = inboundFactory.getInbound(request);
+      if (inbound == null) {
+        response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+      } else {
+        SessionWrapper wrapper = null;
+        SocketIOSession session = sessionFactory.createSession(inbound);
+        for (String p : parseProtocols(protocol))
+        {
+            wrapper = new SessionWrapper(session);
+            if (wrapper != null)
+            {
+                protocol = p;
+                break;
+            }
+        }
+
+        wsFactory.upgrade(request,response,wrapper,origin, protocol);
+      }
 		} else {
     		response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid " + TRANSPORT_NAME + " transport request");
 		}

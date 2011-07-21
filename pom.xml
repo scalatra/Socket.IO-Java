@@ -372,7 +372,7 @@
             <dependency>
                 <groupId>org.testatoo.container</groupId>
                 <artifactId>testatoo-container-jetty</artifactId>
-                <version>1.0-rc1</version>
+                <version>1.0-rc5</version>
             </dependency>
             <!-- GWT -->
             <dependency>
