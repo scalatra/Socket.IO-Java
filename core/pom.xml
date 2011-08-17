@@ -19,10 +19,15 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.testatoo.container</groupId>
-            <artifactId>testatoo-container-jetty</artifactId>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-client</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-websocket</artifactId>
             <scope>provided</scope>
         </dependency>
     </dependencies>
-    
+
 </project>

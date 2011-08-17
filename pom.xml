@@ -17,6 +17,7 @@
     <properties>
         <jdk.version>1.6</jdk.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jetty.version>7.4.5.v20110725</jetty.version>
     </properties>
 
     <developers>
@@ -360,9 +361,14 @@
             </dependency>
             <!-- Jetty -->
             <dependency>
-                <groupId>org.testatoo.container</groupId>
-                <artifactId>testatoo-container-jetty</artifactId>
-                <version>1.0-rc5</version>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-client</artifactId>
+                <version>${jetty.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-websocket</artifactId>
+                <version>${jetty.version}</version>
             </dependency>
             <!-- GWT -->
             <dependency>
