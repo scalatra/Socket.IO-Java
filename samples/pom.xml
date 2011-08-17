@@ -11,7 +11,7 @@
         <relativePath>..</relativePath>
     </parent>
 
-    <groupId>com.glines.socketio.sample</groupId>
+    <groupId>org.scalatra.socketio-java.sample</groupId>
     <artifactId>socketio-sample</artifactId>
     <packaging>pom</packaging>
 

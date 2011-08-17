@@ -11,7 +11,7 @@
         <relativePath>..</relativePath>
     </parent>
 
-    <groupId>com.glines.socketio.extension</groupId>
+    <groupId>org.scalatra.socketio-java.extension</groupId>
     <artifactId>socketio-extension</artifactId>
     <packaging>pom</packaging>
 

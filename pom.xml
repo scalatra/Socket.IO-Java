@@ -352,7 +352,7 @@
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.glines.socketio.extension</groupId>
+                <groupId>org.scalatra.socketio-java.extension</groupId>
                 <artifactId>socketio-gwt</artifactId>
                 <version>${project.version}</version>
             </dependency>
