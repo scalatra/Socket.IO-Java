@@ -6,7 +6,7 @@
 
     <groupId>org.scalatra.socketio-java</groupId>
     <artifactId>socketio</artifactId>
-    <version>2.0.0.RC1</version>
+    <version>2.0.0</version>
     <packaging>pom</packaging>
 
     <name>Socket.IO Java</name>
